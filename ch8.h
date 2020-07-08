@@ -148,8 +148,8 @@ void ch8_exit(ch8_t *ch8);
 #define AND(a,b) do a &= b; while(0)
 #define ADD(a,b) do a += b; while(0)
 #define ADC(a,b) do { CH8_V[0xF] = (a + b) > 0xFF; ADD(a,b); } while(0)
-#define SUB(a,b) do a -= b; while(0)
-#define SBC(a,b) do { CH8_V[0xF] = a > b; SUB(a,b); } while(0)
+#define SUB(a,b,r) do r = a - b; while(0)
+#define SBC(a,b,r) do { CH8_V[0xF] = a > b; SUB(a,b,r); } while(0)
 #define OR(a,b) do a |= b; while(0)
 #define XOR(a,b) do a ^= b; while(0)
 #define SHL(a) do { CH8_V[0xF] = (a >> 7) & 1; a <<= 1; } while(0)
@@ -193,9 +193,9 @@ void ch8_exit(ch8_t *ch8);
         case 0x2: AND(CH8_V[CH8_x], CH8_V[CH8_y]); break; \
         case 0x3: XOR(CH8_V[CH8_x], CH8_V[CH8_y]); break; \
         case 0x4: ADC(CH8_V[CH8_x], CH8_V[CH8_y]); break; \
-        case 0x5: SBC(CH8_V[CH8_x], CH8_V[CH8_y]); break; \
+        case 0x5: SBC(CH8_V[CH8_x], CH8_V[CH8_y], CH8_V[CH8_x]); break; \
         case 0x6: SHR(CH8_V[CH8_x]); break; \
-        case 0x7: SBC(CH8_V[CH8_y], CH8_V[CH8_x]); break; \
+        case 0x7: SBC(CH8_V[CH8_y], CH8_V[CH8_x], CH8_V[CH8_x]); break; \
         case 0xE: SHL(CH8_V[CH8_x]); break; \
     } \
 } while(0)
@@ -350,7 +350,7 @@ void ch8_reset(ch8_t *ch8) {
         0xF0, 0x80, 0x80, 0x80, 0xF0, /// 0xC
         0xE0, 0x90, 0x90, 0x90, 0xE0, /// 0xD
         0xF0, 0x80, 0xF0, 0x80, 0xF0, /// 0xE
-        0xF0, 0x80, 0xF0, 0x80, 0x80  /// 0xF 
+        0xF0, 0x80, 0xF0, 0x80, 0x80  /// 0xF
     };
 
     memcpy(CH8_ram, CH8_FONTSET, 0x50);
@@ -375,7 +375,7 @@ ch8_t *ch8_init(void) {
 
 void ch8_exit(ch8_t *ch8) {
     if (!ch8) return;
-    
+
     free(ch8);
 }
 
