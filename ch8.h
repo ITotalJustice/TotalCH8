@@ -4,6 +4,13 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+/// API
+#define CH8_VERSION_MAJOR 1
+#define CH8_VERSION_MINOR 0
+#define CH8_VERSION_MACRO 0
+#define CH8_VERSION (CH8_VERSION_MAJOR << 24 | CH8_VERSION_MINOR << 16 | CH8_VERSION_MACRO << 8)
+#define CH8_SAVESTATE_VERSION (1 << 24 | 0 << 16 | 0 << 8)
+
 /// Sizes.
 #define SPRITE_SIZE 0x5
 #define SPRITES_SIZE 0x50
@@ -257,25 +264,33 @@ void ch8_exit(ch8_t *ch8);
     } \
 } while(0)
 
+struct ch8_savestate {
+    uint32_t version;       /// version of the savestate.
+    uint8_t reserved[0x10]; /// reserved in case i add stuff.
+    struct Ch8_reg reg;     /// registers.
+    uint8_t ram[CH8_RESERVED-SPRITES_SIZE]; /// dont save rom or sprites.
+    uint16_t stack[CH8_STACK_SIZE];         /// stack.
+    bool display[CH8_DISPLAY_SIZE];         /// display.
+};
 
 /// API
 bool ch8_savestate(ch8_t *ch8, const char *filepath) {
     FILE *fp = fopen(filepath, "wb");
     if (!fp) goto fail;
 
-    ch8_t *temp_ch8 = malloc(sizeof(ch8_t));
-    if (!temp_ch8) goto fail_close;
+    struct ch8_savestate savestate = {0};
 
-    if (!memcpy(temp_ch8, ch8, sizeof(ch8_t))) goto fail_free;
+    savestate.version = CH8_SAVESTATE_VERSION;
+    memcpy(&savestate.reg, &ch8->reg, sizeof(savestate.reg));
+    memcpy(savestate.stack, ch8->mem.stack, CH8_STACK_SIZE);
+    memcpy(savestate.ram, ch8->mem.ram + SPRITES_SIZE, sizeof(savestate.ram));
+    memcpy(savestate.display, ch8->display.pixels, sizeof(savestate.display));
 
-    if (!fwrite(temp_ch8, sizeof(ch8_t), 1, fp)) goto fail_free;
+    if (!fwrite(&savestate, sizeof(savestate), 1, fp)) goto fail_close;
 
-    free(temp_ch8);
     fclose(fp);
     return true;
 
-    fail_free:
-        free(temp_ch8);
     fail_close:
         fclose(fp);
     fail:
@@ -286,19 +301,25 @@ bool ch8_loadstate(ch8_t *ch8, const char *filepath) {
     FILE *fp = fopen(filepath, "rb");
     if (!fp) goto fail;
 
-    ch8_t *temp_ch8 = malloc(sizeof(ch8_t));
-    if (!temp_ch8) goto fail_close;
+    struct ch8_savestate savestate = {0};
 
-    if (!fread(temp_ch8, sizeof(ch8_t), 1, fp)) goto fail_free;
-
-    if (!memcpy(ch8, temp_ch8, sizeof(ch8_t))) goto fail_free;
-
-    free(temp_ch8);
+    if (!fread(&savestate, sizeof(savestate), 1, fp)) goto fail_close;
     fclose(fp);
+
+    /// check if the savestate version is valid.
+    /// this is for if i ever break compatibility.
+    if (savestate.version < CH8_SAVESTATE_VERSION) goto fail;
+
+    /// reset the key presses.
+    memset(&ch8->input, 0, sizeof(ch8->input));
+
+    memcpy(&ch8->reg, &savestate.reg, sizeof(savestate.reg));
+    memcpy(ch8->mem.stack, savestate.stack, CH8_STACK_SIZE);
+    memcpy(ch8->mem.ram + SPRITES_SIZE, savestate.ram, sizeof(savestate.ram));
+    memcpy(ch8->display.pixels, savestate.display, sizeof(savestate.display));
+
     return true;
 
-    fail_free:
-        free(temp_ch8);
     fail_close:
         fclose(fp);
     fail:
