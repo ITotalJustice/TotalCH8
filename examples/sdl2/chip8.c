@@ -83,7 +83,12 @@ int main(int argc, char **argv) {
         bg_colour,
         texture
     };
-    ch8_t ch8 = ch8_init(draw_cb, &draw, sound_cb, 0);
+    
+    static ch8_t ch8;
+    if (!ch8_init(&ch8, draw_cb, &draw, sound_cb, 0)) {
+        perror("failed to init ch8\n");
+        return -1;
+    }
 
     if (loadrom(&ch8, argv[1]) == false) {
         perror("failed to load rom\n");

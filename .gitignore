@@ -60,3 +60,4 @@ meson-logs/
 meson-private/
 builddir/
 build.ninja
+switch/

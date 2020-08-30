@@ -163,7 +163,7 @@ bool ch8_loadstate(ch8_t *ch8, const struct ch8_savestate *state);
 void ch8_reset(ch8_t *ch8);
 bool ch8_get_pixel(const struct Ch8_display *display, u8 x, u8 y);
 void ch8_run(ch8_t *ch8);
-ch8_t ch8_init(ch8_cb_draw drw, void *drw_data, ch8_cb_sound snd, void *snd_data);
+bool ch8_init(ch8_t *ch8_out, ch8_cb_draw drw, void *drw_data, ch8_cb_sound snd, void *snd_data);
 
 #ifdef CH8_IMPLEMENTATION
 
@@ -405,15 +405,15 @@ void ch8_reset(ch8_t *ch8) {
     __ch8_reset(ch8, false);
 }
 
-ch8_t ch8_init(ch8_cb_draw drw, void *drw_data, ch8_cb_sound snd, void *snd_data) {
-    ch8_t ch8 = {0};
-    
-    ch8.draw.cb = drw;
-    ch8.draw.user_data = drw_data;
-    ch8.sound.cb = snd;
-    ch8.sound.user_data = snd_data;
+bool ch8_init(ch8_t *ch8_out, ch8_cb_draw drw, void *drw_data, ch8_cb_sound snd, void *snd_data) {
+    if (!ch8_out) return false;
 
-    return ch8;
+    ch8->draw.cb = drw;
+    ch8->draw.user_data = drw_data;
+    ch8->sound.cb = snd;
+    ch8->sound.user_data = snd_data;
+
+    return true;
 }
 
 bool ch8_loadrom(ch8_t *ch8, const u8 *data, u64 len) {
