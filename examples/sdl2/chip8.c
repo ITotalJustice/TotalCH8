@@ -83,7 +83,7 @@ int main(int argc, char **argv) {
         bg_colour,
         texture
     };
-    
+
     static ch8_t ch8;
     if (!ch8_init(&ch8, draw_cb, &draw, sound_cb, 0)) {
         perror("failed to init ch8\n");

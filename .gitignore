@@ -53,7 +53,6 @@ dkms.conf
 *.dll
 *.exe
 .vscode/
-roms/
 *.s
 meson-info/
 meson-logs/
@@ -61,3 +60,4 @@ meson-private/
 builddir/
 build.ninja
 switch/
+tests/
