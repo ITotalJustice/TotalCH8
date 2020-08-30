@@ -1,15 +1,60 @@
+/*
+    MIT License
+
+    Copyright (c) 2020 ITotalJustice
+
+    Permission is hereby granted, free of charge, to any person obtaining a copy
+    of this software and associated documentation files (the "Software"), to deal
+    in the Software without restriction, including without limitation the rights
+    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+    copies of the Software, and to permit persons to whom the Software is
+    furnished to do so, subject to the following conditions:
+
+    The above copyright notice and this permission notice shall be included in all
+    copies or substantial portions of the Software.
+
+    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+    SOFTWARE.
+*/
+
 #ifndef CH8_INCLUDE
 #define CH8_INCLUDE
 
-#include <stdint.h>
-#include <stdbool.h>
+#ifndef bool
+#define bool _Bool
+#endif
+#ifdef true
+#undef true
+#endif
+#define true ((bool)1)
+#ifdef false
+#undef false
+#endif
+#define false ((bool)0)
+typedef unsigned char u8;
+typedef unsigned short u16;
+typedef unsigned int u32;
+typedef unsigned long long u64;
+typedef signed char s8;
+typedef signed short s16;
+typedef signed int s32;
+typedef signed long long s64;
 
 /// API
-#define CH8_VERSION_MAJOR 1
-#define CH8_VERSION_MINOR 0
-#define CH8_VERSION_MACRO 0
-#define CH8_VERSION (CH8_VERSION_MAJOR << 24 | CH8_VERSION_MINOR << 16 | CH8_VERSION_MACRO << 8)
-#define CH8_SAVESTATE_VERSION (1 << 24 | 0 << 16 | 0 << 8)
+#define CH8_VERSION_NUM_MAJOR 1
+#define CH8_VERSION_NUM_MINOR 0
+#define CH8_VERSION_NUM_MACRO 0
+#define CH8_VERSION_NUM (CH8_VERSION_MAJOR << 24 | CH8_VERSION_MINOR << 16 | CH8_VERSION_MACRO << 8)
+
+#define CH8_VERSION_MAJOR "1"
+#define CH8_VERSION_MINOR "0"
+#define CH8_VERSION_MACRO "0"
+#define CH8_VERSION CH8_VERSION_MAJOR "." CH8_VERSION_MINOR "." CH8_VERSION_MACRO
 
 /// Sizes.
 #define SPRITE_SIZE 0x5
@@ -41,24 +86,24 @@ typedef enum {
 } CH8_Key;
 
 struct Ch8_reg {
-    uint8_t v[CH8_VREG_SIZE]; /// general register
-    uint8_t st;      /// sound timer
-    uint8_t dt;      /// delay timer
-    uint16_t i:12;   /// index.
-    uint16_t pc:12;  /// program counter
-    uint16_t sp:12;  /// stack pointer.
+    u8 v[CH8_VREG_SIZE]; /// general register
+    u8 st;      /// sound timer
+    u8 dt;      /// delay timer
+    u16 i:12;   /// index.
+    u16 pc:12;  /// program counter
+    u16 sp:12;  /// stack pointer.
 };
 
 struct Ch8_mem {
-    uint8_t ram[CH8_RAM_SIZE];
-    uint16_t stack[CH8_STACK_SIZE];
+    u8 ram[CH8_RAM_SIZE];
+    u16 stack[CH8_STACK_SIZE];
 };
 
 struct Ch8_display {
     bool draw;
     bool wrap;
-    bool pixels[CH8_DISPLAY_SIZE];
-    uint16_t width, height, size;
+    u8 pixels[CH8_DISPLAY_SIZE];
+    u16 width, height, size;
 };
 
 struct Ch8_input {
@@ -72,13 +117,25 @@ struct Ch8_settings {
 };
 
 struct Ch8_var {
-    uint8_t n:4;
-    uint8_t x:4;
-    uint8_t y:4;
-    uint8_t kk;
-    uint16_t nnn:12;
-    uint16_t opcode;
+    u8 n:4;
+    u8 x:4;
+    u8 y:4;
+    u8 kk;
+    u16 nnn:12;
+    u16 opcode;
 };
+
+struct ch8_savestate {
+    u32 version;
+    u32 seed;
+    struct Ch8_reg reg;
+    u8 ram[CH8_RESERVED-SPRITES_SIZE];
+    u16 stack[CH8_STACK_SIZE];
+    u8 display[CH8_DISPLAY_SIZE];
+};
+
+typedef void (*ch8_cb_draw)(const struct Ch8_display *display, void *user_data);
+typedef void (*ch8_cb_sound)(void *user_data);
 
 typedef struct {
     struct Ch8_reg reg;
@@ -87,29 +144,28 @@ typedef struct {
     struct Ch8_input input;
     struct Ch8_settings set;
     struct Ch8_var var;
+    struct {
+        void *user_data;
+        ch8_cb_draw cb;
+    } draw;
+    struct {
+        void *user_data;
+        ch8_cb_sound cb;
+    } sound;
+    u32 seed;
 } ch8_t;
 
 /// API CALLS
-void ch8_input(ch8_t *ch8, CH8_Key key, bool pressed);
-bool ch8_update_video(ch8_t *ch8);
-bool ch8_update_sound(const ch8_t *ch8);
-void ch8_wrap(ch8_t *ch8, bool enabled);
-bool ch8_is_wrapped(const ch8_t *ch8);
-bool ch8_savestate(ch8_t *ch8, const char *filepath);
-bool ch8_loadstate(ch8_t *ch8, const char *filepath);
-bool ch8_loadrom(ch8_t *ch8, const char *path);
+void ch8_set_key(ch8_t *ch8, CH8_Key key, bool pressed);
+bool ch8_loadrom(ch8_t *ch8, const u8 *data, u64 len);
+bool ch8_savestate(const ch8_t *ch8, struct ch8_savestate *out_state);
+bool ch8_loadstate(ch8_t *ch8, const struct ch8_savestate *state);
 void ch8_reset(ch8_t *ch8);
-bool ch8_get_pixel(const ch8_t *ch8, uint8_t x, uint8_t y);
-void ch8_pause(ch8_t *ch8);
+bool ch8_get_pixel(const struct Ch8_display *display, u8 x, u8 y);
 void ch8_run(ch8_t *ch8);
-ch8_t *ch8_init(void);
-void ch8_exit(ch8_t *ch8);
+ch8_t ch8_init(ch8_cb_draw drw, void *drw_data, ch8_cb_sound snd, void *snd_data);
 
 #ifdef CH8_IMPLEMENTATION
-
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
 
 /// Helper macros.
 #define CH8_opcode  ch8->var.opcode
@@ -133,10 +189,69 @@ void ch8_exit(ch8_t *ch8);
 #define CH8_n       ch8->var.n
 #define CH8_x       ch8->var.x
 #define CH8_y       ch8->var.y
-#define MEMCLR(ptr,size) do memset(ptr, 0, size); while(0)
+
+static inline void __ch8_memset(void *p, const int v, u64 len) {
+    u8 *ptr = (u8*)p;
+    u8 value = (u8)v;
+    while (len--) *ptr++ = value;
+}
+
+static inline void __ch8_memcpy(void *dst, const void *src, u64 len) {
+    u8 *d = (u8*)dst;
+    const u8 *s = (const u8*)src;
+    while (len--) *d++ = *s++;
+}
+
+#define MEMSET(p,v,len) __ch8_memset((void*)(p),(v),(len))
+#define MEMCPY(d,s,len) __ch8_memcpy((void*)(d),(const void*)(s),(len))
+
+static inline u8 __ch8_rand(ch8_t *ch8) {
+    ch8->seed = (214013*ch8->seed+2531011);
+    return ((ch8->seed>>16)&0x7FFF) & 0xFF;
+}
+
+static void __ch8_reset(ch8_t *ch8, const bool full) {
+    if (full) {
+        MEMSET(&ch8->mem, 0, sizeof(ch8->mem));
+        const u8 CH8_FONTSET[SPRITES_SIZE] = {
+            0xF0, 0x90, 0x90, 0x90, 0xF0, /// 0x0
+            0x20, 0x60, 0x20, 0x20, 0x70, /// 0x1
+            0xF0, 0x10, 0xF0, 0x80, 0xF0, /// 0x2
+            0xF0, 0x10, 0xF0, 0x10, 0xF0, /// 0x3
+            0x90, 0x90, 0xF0, 0x10, 0x10, /// 0x4
+            0xF0, 0x80, 0xF0, 0x10, 0xF0, /// 0x5
+            0xF0, 0x80, 0xF0, 0x90, 0xF0, /// 0x6
+            0xF0, 0x10, 0x20, 0x40, 0x40, /// 0x7
+            0xF0, 0x90, 0xF0, 0x90, 0xF0, /// 0x8
+            0xF0, 0x90, 0xF0, 0x10, 0xF0, /// 0x9
+            0xF0, 0x90, 0xF0, 0x90, 0x90, /// 0xA
+            0xE0, 0x90, 0xE0, 0x90, 0xE0, /// 0xB
+            0xF0, 0x80, 0x80, 0x80, 0xF0, /// 0xC
+            0xE0, 0x90, 0x90, 0x90, 0xE0, /// 0xD
+            0xF0, 0x80, 0xF0, 0x80, 0xF0, /// 0xE
+            0xF0, 0x80, 0xF0, 0x80, 0x80  /// 0xF
+        };
+        MEMCPY(CH8_ram, CH8_FONTSET, 0x50);
+    } else {
+        MEMSET(ch8->mem.stack, 0, sizeof(ch8->mem.stack));
+        MEMSET(ch8->mem.ram + SPRITES_SIZE, 0, sizeof(ch8->mem.ram) - SPRITES_SIZE);
+    }
+    MEMSET(&ch8->reg, 0, sizeof(ch8->reg));
+    MEMSET(&ch8->var, 0, sizeof(ch8->var));
+    MEMSET(&ch8->input, 0, sizeof(ch8->input));
+    MEMSET(&ch8->display, 0, sizeof(ch8->display));
+    MEMSET(&ch8->set, 0, sizeof(ch8->set));
+    CH8_width = CH8_DISPLAY_W;
+    CH8_height = CH8_DISPLAY_H;
+    CH8_size = CH8_DISPLAY_SIZE;
+    CH8_PC = 0x200;
+}
 
 /// Instructions.
-#define CLS() do { MEMCLR(CH8_pixels, sizeof(CH8_pixels)); CH8_draw = true; } while(0)
+#define CLS() do { \
+    MEMSET(CH8_pixels, 0, sizeof(CH8_pixels)); \
+    ch8->draw.cb(&ch8->display, ch8->draw.user_data); \
+} while(0)
 #define SE(a,b) do if (a == b) CH8_PC += 2; while (0)
 #define SNE(a,b) do if (a != b) CH8_PC += 2; while (0)
 #define SKP(v) do if (CH8_keys[v]) CH8_PC += 2; while (0)
@@ -154,22 +269,22 @@ void ch8_exit(ch8_t *ch8);
 #define XOR(a,b) do a ^= b; while(0)
 #define SHL(a) do { CH8_V[0xF] = (a >> 7) & 1; a <<= 1; } while(0)
 #define SHR(a) do { CH8_V[0xF] = a & 1; a >>= 1; } while(0)
-#define RND(a,mask) do a = (rand() % 0xFF) & mask; while(0)
+#define RND(a,mask) do a = __ch8_rand(ch8) & mask; while(0)
 #define DRAW() do { \
     CH8_V[0xF] = 0; \
-    for (uint8_t n = 0; n < CH8_n; n++) { \
-    const uint16_t pos = CH8_V[CH8_x] + ((CH8_V[CH8_y] + n) * CH8_width); \
-        for (uint8_t bit = 0; bit < 8; bit++) { \
+    for (u8 n = 0; n < CH8_n; n++) { \
+    const u16 pos = (u16)(CH8_V[CH8_x] + ((CH8_V[CH8_y] + n) * CH8_width)); \
+        for (u8 bit = 0; bit < 8; bit++) { \
             if (CH8_ram[CH8_I + n] & (0x80 >> bit)) { \
-                uint16_t bitpos = pos + bit; \
-                if (CH8_wrap == true) \
+                u16 bitpos = pos + bit; \
+                if (CH8_wrap) \
                     bitpos %= CH8_width; \
                 CH8_V[0xF] |= CH8_pixels[bitpos]; \
                 CH8_pixels[bitpos] ^= 1; \
             } \
         } \
     } \
-    CH8_draw = true; \
+    ch8->draw.cb(&ch8->display, ch8->draw.user_data); \
 } while (0)
 
 /// Insturction groups.
@@ -218,16 +333,16 @@ void ch8_exit(ch8_t *ch8);
         case 0x1E: ADD(CH8_I, CH8_V[CH8_x]); break; \
         case 0x29: LD(CH8_I, CH8_V[CH8_x] * 5); break; \
         case 0x33: \
-            LD(CH8_ram[CH8_I], (CH8_V[CH8_x] % 1000) / 100); \
+            LD(CH8_ram[CH8_I], (u8)(CH8_V[CH8_x] % 1000) / 100); \
             LD(CH8_ram[CH8_I + 1], (CH8_V[CH8_x] % 100) / 10); \
             LD(CH8_ram[CH8_I + 2], (CH8_V[CH8_x] % 10) / 1); \
             break; \
         case 0x55: \
-            for (uint8_t i = 0; i <= CH8_x; i++) \
+            for (u8 i = 0; i <= CH8_x; i++) \
                 LD(CH8_ram[CH8_I + i], CH8_V[i]); \
             break; \
         case 0x65: \
-            for (uint8_t i = 0; i <= CH8_x; i++) \
+            for (u8 i = 0; i <= CH8_x; i++) \
                 LD(CH8_V[i], CH8_ram[CH8_I + i]); \
             break; \
     } \
@@ -264,181 +379,61 @@ void ch8_exit(ch8_t *ch8);
     } \
 } while(0)
 
-struct ch8_savestate {
-    uint32_t version;       /// version of the savestate.
-    uint8_t reserved[0x10]; /// reserved in case i add stuff.
-    struct Ch8_reg reg;     /// registers.
-    uint8_t ram[CH8_RESERVED-SPRITES_SIZE]; /// dont save rom or sprites.
-    uint16_t stack[CH8_STACK_SIZE];         /// stack.
-    bool display[CH8_DISPLAY_SIZE];         /// display.
-};
-
 /// API
-bool ch8_savestate(ch8_t *ch8, const char *filepath) {
-    FILE *fp = fopen(filepath, "wb");
-    if (!fp) goto fail;
-
-    struct ch8_savestate savestate = {0};
-
-    savestate.version = CH8_SAVESTATE_VERSION;
-    memcpy(&savestate.reg, &ch8->reg, sizeof(savestate.reg));
-    memcpy(savestate.stack, ch8->mem.stack, CH8_STACK_SIZE);
-    memcpy(savestate.ram, ch8->mem.ram + SPRITES_SIZE, sizeof(savestate.ram));
-    memcpy(savestate.display, ch8->display.pixels, sizeof(savestate.display));
-
-    if (!fwrite(&savestate, sizeof(savestate), 1, fp)) goto fail_close;
-
-    fclose(fp);
+bool ch8_savestate(const ch8_t *ch8, struct ch8_savestate *out_state) {
+    if (!ch8 || !out_state) return false;
+    out_state->seed = ch8->seed;
+    MEMCPY(&out_state->reg, &ch8->reg, sizeof(out_state->reg));
+    MEMCPY(out_state->stack, ch8->mem.stack, CH8_STACK_SIZE);
+    MEMCPY(out_state->ram, ch8->mem.ram + SPRITES_SIZE, sizeof(out_state->ram));
+    MEMCPY(out_state->display, ch8->display.pixels, sizeof(out_state->display));
     return true;
-
-    fail_close:
-        fclose(fp);
-    fail:
-        return false;
 }
 
-bool ch8_loadstate(ch8_t *ch8, const char *filepath) {
-    FILE *fp = fopen(filepath, "rb");
-    if (!fp) goto fail;
-
-    struct ch8_savestate savestate = {0};
-
-    if (!fread(&savestate, sizeof(savestate), 1, fp)) goto fail_close;
-    fclose(fp);
-
-    /// check if the savestate version is valid.
-    /// this is for if i ever break compatibility.
-    if (savestate.version < CH8_SAVESTATE_VERSION) goto fail;
-
-    /// reset the key presses.
-    memset(&ch8->input, 0, sizeof(ch8->input));
-
-    memcpy(&ch8->reg, &savestate.reg, sizeof(savestate.reg));
-    memcpy(ch8->mem.stack, savestate.stack, CH8_STACK_SIZE);
-    memcpy(ch8->mem.ram + SPRITES_SIZE, savestate.ram, sizeof(savestate.ram));
-    memcpy(ch8->display.pixels, savestate.display, sizeof(savestate.display));
-
+bool ch8_loadstate(ch8_t *ch8, const struct ch8_savestate *state) {
+    if (!ch8 || !state) return false;
+    ch8->seed = state->seed;
+    MEMSET(&ch8->input, 0, sizeof(ch8->input));
+    MEMCPY(&ch8->reg, &state->reg, sizeof(state->reg));
+    MEMCPY(ch8->mem.stack, state->stack, CH8_STACK_SIZE);
+    MEMCPY(ch8->mem.ram + SPRITES_SIZE, state->ram, sizeof(state->ram));
+    MEMCPY(ch8->display.pixels, state->display, sizeof(state->display));
     return true;
-
-    fail_close:
-        fclose(fp);
-    fail:
-        return false;
 }
 
 void ch8_reset(ch8_t *ch8) {
-    MEMCLR(&ch8->reg, sizeof(ch8->reg));
-    MEMCLR(&ch8->var, sizeof(ch8->var));
-    MEMCLR(&ch8->mem, sizeof(ch8->mem));
-    MEMCLR(&ch8->input, sizeof(ch8->input));
-    MEMCLR(&ch8->display, sizeof(ch8->display));
-    MEMCLR(&ch8->set, sizeof(ch8->set));
-
-    const uint8_t CH8_FONTSET[SPRITES_SIZE] = {
-        0xF0, 0x90, 0x90, 0x90, 0xF0, /// 0x0
-        0x20, 0x60, 0x20, 0x20, 0x70, /// 0x1
-        0xF0, 0x10, 0xF0, 0x80, 0xF0, /// 0x2
-        0xF0, 0x10, 0xF0, 0x10, 0xF0, /// 0x3
-        0x90, 0x90, 0xF0, 0x10, 0x10, /// 0x4
-        0xF0, 0x80, 0xF0, 0x10, 0xF0, /// 0x5
-        0xF0, 0x80, 0xF0, 0x90, 0xF0, /// 0x6
-        0xF0, 0x10, 0x20, 0x40, 0x40, /// 0x7
-        0xF0, 0x90, 0xF0, 0x90, 0xF0, /// 0x8
-        0xF0, 0x90, 0xF0, 0x10, 0xF0, /// 0x9
-        0xF0, 0x90, 0xF0, 0x90, 0x90, /// 0xA
-        0xE0, 0x90, 0xE0, 0x90, 0xE0, /// 0xB
-        0xF0, 0x80, 0x80, 0x80, 0xF0, /// 0xC
-        0xE0, 0x90, 0x90, 0x90, 0xE0, /// 0xD
-        0xF0, 0x80, 0xF0, 0x80, 0xF0, /// 0xE
-        0xF0, 0x80, 0xF0, 0x80, 0x80  /// 0xF
-    };
-
-    memcpy(CH8_ram, CH8_FONTSET, 0x50);
-    CH8_PC = 0x200;
-
-    CH8_width = CH8_DISPLAY_W;
-    CH8_height = CH8_DISPLAY_H;
-    CH8_size = CH8_DISPLAY_SIZE;
-
-    ch8->set.clock_freq = CH8_CLOCK_FREQ;
-    ch8->set.clock_step = CH8_CLOCK_STEP;
+    __ch8_reset(ch8, false);
 }
 
-ch8_t *ch8_init(void) {
-    ch8_t *ch8 = malloc(sizeof(ch8_t));
-    if (!ch8) {
-        return NULL;
-    }
+ch8_t ch8_init(ch8_cb_draw drw, void *drw_data, ch8_cb_sound snd, void *snd_data) {
+    ch8_t ch8 = {0};
+    
+    ch8.draw.cb = drw;
+    ch8.draw.user_data = drw_data;
+    ch8.sound.cb = snd;
+    ch8.sound.user_data = snd_data;
 
     return ch8;
 }
 
-void ch8_exit(ch8_t *ch8) {
-    if (!ch8) return;
-
-    free(ch8);
-}
-
-bool ch8_loadrom(ch8_t *ch8, const char *path) {
-    ch8_reset(ch8);
-
-    FILE *fp = fopen(path, "rb");
-    if (!fp) goto fail;
-
-    fseek(fp, 0, SEEK_END);
-    const uint16_t size = ftell(fp);
-    rewind(fp);
-    if (!size || size > CH8_MAX_ROM_SIZE) goto fail_close;
-
-    if (!fread(CH8_ram + 0x200, size, 1, fp)) goto fail_close;
-
+bool ch8_loadrom(ch8_t *ch8, const u8 *data, u64 len) {
+    if (!ch8 || !data || !len) return false;
+    if (len > CH8_MAX_ROM_SIZE) return false;
+    __ch8_reset(ch8, true);
+    MEMCPY(ch8->mem.ram + 0x200, data, len);
     return true;
-
-    fail_close:
-        fclose(fp);
-    fail:
-        return false;
 }
 
-bool ch8_update_video(ch8_t *ch8) {
-    const bool up_vid = CH8_draw;
-    CH8_draw = false;
-    return up_vid;
-}
-
-bool ch8_update_sound(const ch8_t *ch8) {
-    return CH8_ST > 0;
-}
-
-void ch8_wrap(ch8_t *ch8, bool enabled) {
-    CH8_wrap = enabled;
-}
-
-bool ch8_is_wrapped(const ch8_t *ch8) {
-    return CH8_wrap;
-}
-
-void ch8_input(ch8_t *ch8, CH8_Key key, bool pressed) {
+void ch8_set_key(ch8_t *ch8, CH8_Key key, bool pressed) {
     CH8_keys[key] = pressed;
 }
 
-bool ch8_get_pixel(const ch8_t *ch8, uint8_t x, uint8_t y) {
-    return CH8_pixels[x + (CH8_width * y)];
-}
-
-void ch8_pause(ch8_t *ch8) {
-    ch8->set.pause = !ch8->set.pause;
+bool ch8_get_pixel(const struct Ch8_display *display, u8 x, u8 y) {
+    return display->pixels[x + (display->width * y)];
 }
 
 void ch8_run(ch8_t *ch8) {
-    if (ch8->set.pause || CH8_draw){
-        return;
-    }
-
-    const float freq = ch8->set.clock_freq;
-    const float step = ch8->set.clock_step;
-
-    for (float i = 0.0; i < freq && !CH8_draw; i += step) {
+    for (u64 clock = 0; clock < 10; clock++) {
         FETCH();
         EXECUTE();
     }
@@ -449,6 +444,7 @@ void ch8_run(ch8_t *ch8) {
 
     if (CH8_ST) {
         CH8_ST--;
+        ch8->sound.cb(ch8->draw.user_data);
     }
 }
 #endif /* CH8_IMPLEMENTATION */
