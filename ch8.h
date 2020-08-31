@@ -37,11 +37,9 @@
 typedef unsigned char u8;
 typedef unsigned short u16;
 typedef unsigned int u32;
-typedef unsigned long long u64;
 typedef signed char s8;
 typedef signed short s16;
 typedef signed int s32;
-typedef signed long long s64;
 
 /// API
 #define CH8_VERSION_NUM_MAJOR 1
@@ -101,7 +99,8 @@ struct Ch8_display {
     bool draw;
     bool wrap;
     u8 pixels[CH8_DISPLAY_SIZE];
-    u16 width, height, size;
+    u8 width, height;
+    u16 size;
 };
 
 struct Ch8_input {
@@ -155,7 +154,7 @@ typedef struct {
 
 /// API CALLS
 void ch8_set_key(ch8_t *ch8, CH8_Key key, bool pressed);
-bool ch8_loadrom(ch8_t *ch8, const u8 *data, u64 len);
+bool ch8_loadrom(ch8_t *ch8, const u8 *data, u32 len);
 bool ch8_savestate(const ch8_t *ch8, struct ch8_savestate *out_state);
 bool ch8_loadstate(ch8_t *ch8, const struct ch8_savestate *state);
 void ch8_reset(ch8_t *ch8);
@@ -188,13 +187,13 @@ bool ch8_init(ch8_t *ch8_out, ch8_cb_draw drw, void *drw_data, ch8_cb_sound snd,
 #define CH8_x       ch8->var.x
 #define CH8_y       ch8->var.y
 
-static inline void __ch8_memset(void *p, const int v, u64 len) {
+static inline void __ch8_memset(void *p, const int v, u32 len) {
     u8 *ptr = (u8*)p;
     u8 value = (u8)v;
     while (len--) *ptr++ = value;
 }
 
-static inline void __ch8_memcpy(void *dst, const void *src, u64 len) {
+static inline void __ch8_memcpy(void *dst, const void *src, u32 len) {
     u8 *d = (u8*)dst;
     const u8 *s = (const u8*)src;
     while (len--) *d++ = *s++;
@@ -414,7 +413,7 @@ bool ch8_init(ch8_t *ch8_out, ch8_cb_draw drw, void *drw_data, ch8_cb_sound snd,
     return true;
 }
 
-bool ch8_loadrom(ch8_t *ch8, const u8 *data, u64 len) {
+bool ch8_loadrom(ch8_t *ch8, const u8 *data, u32 len) {
     if (!ch8 || !data || !len) return false;
     if (len > CH8_MAX_ROM_SIZE) return false;
     __ch8_reset(ch8, true);
@@ -431,7 +430,7 @@ bool ch8_get_pixel(const struct Ch8_display *display, u8 x, u8 y) {
 }
 
 void ch8_run(ch8_t *ch8) {
-    for (u64 clock = 0; clock < 10; clock++) {
+    for (u32 clock = 0; clock < 10; clock++) {
         FETCH();
         EXECUTE();
     }

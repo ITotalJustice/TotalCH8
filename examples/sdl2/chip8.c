@@ -43,7 +43,7 @@ static bool loadrom(ch8_t *c, const char *path) {
     if (!sz || sz > CH8_MAX_ROM_SIZE) goto error_close;
     u8 *data = (u8*)malloc(sz);
     fread((void*)data, sz, 1, fp);
-    if (!ch8_loadrom(c, data, (u64)sz)) goto error_free;
+    if (!ch8_loadrom(c, data, (u32)sz)) goto error_free;
     fclose(fp);
     free(data);
     return true;
