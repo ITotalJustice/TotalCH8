@@ -25,6 +25,7 @@
 #define CH8_ROMS_IMPLEMENTATION
 #include "../../../../ch8_ext_roms.h"
 
+#include <stdint.h>
 #include <switch.h>
 
 #define WIDTH 1280
@@ -38,15 +39,15 @@ struct Screen {
     ViLayer layer;
     NWindow window;
     Framebuffer fb;
-    u32 *pixels;
+    uint32_t *pixels;
 };
 
-static void draw_pixel(struct Screen *screen, int x, int y, u32 col) {
+static void draw_pixel(struct Screen *screen, int x, int y, uint32_t col) {
     const int pos = (y * WIDTH) + x;
     screen->pixels[pos] = col;
 }
 
-static void draw_rect(struct Screen *screen, int x, int y, int w, int h, u32 col) {
+static void draw_rect(struct Screen *screen, int x, int y, int w, int h, uint32_t col) {
     for (int _y = 0; _y < h; _y++) {
         for (int _x = 0; _x < w; _x++) {
             draw_pixel(screen, _x + x, _y + y, col);
@@ -59,9 +60,9 @@ static void sound_cb(void *user_data) {}
 static void draw_cb(const struct Ch8_display *display, void *user_data) {
     struct Screen *screen = (struct Screen*)user_data;
 
-    for (u8 y = 0; y < display->height; y++) {
-        for (u8 x = 0; x < display->width; x++) {
-            const u32 col = ch8_get_pixel(display,x,y) ? FG_COLOUR : BG_COLOUR;
+    for (uint8_t y = 0; y < display->height; y++) {
+        for (uint8_t x = 0; x < display->width; x++) {
+            const uint32_t col = ch8_get_pixel(display,x,y) ? FG_COLOUR : BG_COLOUR;
             draw_rect(screen, x * SCALE, y * SCALE, SCALE, SCALE, col);
         }
     }
@@ -86,8 +87,8 @@ int main(int argc, char **argv) {
 
     while (appletMainLoop()) {
         hidScanInput();
-        const u64 kDown = hidKeysDown(CONTROLLER_P1_AUTO);
-        const u64 kUp = hidKeysUp(CONTROLLER_P1_AUTO);
+        const uint64_t kDown = hidKeysDown(CONTROLLER_P1_AUTO);
+        const uint64_t kUp = hidKeysUp(CONTROLLER_P1_AUTO);
 
         if (kDown & KEY_PLUS) break;
 
@@ -101,7 +102,7 @@ int main(int argc, char **argv) {
         if (kDown & KEY_RIGHT) ch8_set_key(&ch8, CH8KEY_6, true);
         else if(kUp & KEY_RIGHT) ch8_set_key(&ch8, CH8KEY_6, false);
 
-        screen.pixels = (u32*)framebufferBegin(&screen.fb, 0);
+        screen.pixels = (uint32_t*)framebufferBegin(&screen.fb, 0);
 
         ch8_run(&ch8);
 

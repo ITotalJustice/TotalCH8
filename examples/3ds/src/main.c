@@ -25,6 +25,7 @@
 #define CH8_ROMS_IMPLEMENTATION
 #include "../../../ch8_ext_roms.h"
 
+#include <stdint.h>
 #include <3ds.h>
 #include <citro2d.h>
 
@@ -35,8 +36,8 @@
 struct Screen {
     C3D_RenderTarget *top;
     C3D_RenderTarget *bottom;
-    u32 bg_colour;
-    u32 fg_colour;
+    uint32_t bg_colour;
+    uint32_t fg_colour;
 };
 
 static void sound_cb(void *user_data) {}
@@ -44,9 +45,9 @@ static void sound_cb(void *user_data) {}
 static void draw_cb(const struct Ch8_display *display, void *user_data) {
     struct Screen *screen = (struct Screen*)user_data;
 
-    for (u8 y = 0; y < display->height; y++) {
-        for (u8 x = 0; x < display->width; x++) {
-            const u32 col = ch8_get_pixel(display,x,y) ? screen->fg_colour : screen->bg_colour;
+    for (uint8_t y = 0; y < display->height; y++) {
+        for (uint8_t x = 0; x < display->width; x++) {
+            const uint32_t col = ch8_get_pixel(display,x,y) ? screen->fg_colour : screen->bg_colour;
             C2D_DrawRectSolid(x * SCALE, y * SCALE, 0.0, SCALE, SCALE, col);
         }
     }
@@ -72,8 +73,8 @@ int main(int argc, char **argv) {
 
     while (aptMainLoop()) {
         hidScanInput();
-        const u32 kDown = hidKeysDown();
-        const u32 kUp = hidKeysUp();
+        const uint32_t kDown = hidKeysDown();
+        const uint32_t kUp = hidKeysUp();
 
         if (kDown & KEY_START) break;
 

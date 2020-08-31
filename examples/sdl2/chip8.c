@@ -1,6 +1,7 @@
 #define CH8_IMPLEMENTATION
 #include "../../ch8.h"
 
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -8,9 +9,9 @@
 
 #define SCALE 10
 
-struct Draw {
-    u32 fg;
-    u32 bg;
+struct Screen {
+    uint32_t fg_colour;
+    uint32_t bg_colour;
     SDL_Texture *texture;
 };
 
@@ -19,18 +20,18 @@ static void sound_cb(void *user_data) {
 }
 
 static void draw_cb(const struct Ch8_display *display, void *user_data) {
-    struct Draw *draw = (struct Draw*)user_data;
-    u32 *pixels; int pitch;
-    SDL_LockTexture(draw->texture, NULL, (void**)&pixels, &pitch);
+    struct Screen *screen = (struct Screen*)user_data;
+    uint32_t *pixels; int pitch;
+    SDL_LockTexture(screen->texture, NULL, (void**)&pixels, &pitch);
 
-    for (u8 y = 0; y < CH8_DISPLAY_H; y++) {
-        const u16 pos = y * CH8_DISPLAY_W;
-        for (u8 x = 0; x < CH8_DISPLAY_W; x++) {
-            pixels[x + pos] = ch8_get_pixel(display,x,y) ? draw->fg : draw->bg;
+    for (uint8_t y = 0; y < CH8_DISPLAY_H; y++) {
+        const uint16_t pos = y * CH8_DISPLAY_W;
+        for (uint8_t x = 0; x < CH8_DISPLAY_W; x++) {
+            pixels[x + pos] = ch8_get_pixel(display,x,y) ? screen->fg_colour : screen->bg_colour;
         }
     }
 
-    SDL_UnlockTexture(draw->texture);
+    SDL_UnlockTexture(screen->texture);
 }
 
 static bool loadrom(ch8_t *c, const char *path) {
@@ -41,9 +42,9 @@ static bool loadrom(ch8_t *c, const char *path) {
     long sz = ftell(fp);
     rewind(fp);
     if (!sz || sz > CH8_MAX_ROM_SIZE) goto error_close;
-    u8 *data = (u8*)malloc(sz);
+    uint8_t *data = (uint8_t*)malloc(sz);
     fread((void*)data, sz, 1, fp);
-    if (!ch8_loadrom(c, data, (u32)sz)) goto error_free;
+    if (!ch8_loadrom(c, data, (uint32_t)sz)) goto error_free;
     fclose(fp);
     free(data);
     return true;
@@ -75,17 +76,17 @@ int main(int argc, char **argv) {
     SDL_PixelFormat *format = SDL_AllocFormat(SDL_GetWindowPixelFormat(window));
     SDL_Texture *texture = SDL_CreateTexture(renderer, format->format, SDL_TEXTUREACCESS_STREAMING, CH8_DISPLAY_W, CH8_DISPLAY_H);
 
-    const u32 fg_colour = SDL_MapRGB(format, 0x00,0xFF,0x00);
-    const u32 bg_colour = SDL_MapRGB(format, 0x00,0x00,0x00);
+    const uint32_t fg_colour = SDL_MapRGB(format, 0x00,0xFF,0x00);
+    const uint32_t bg_colour = SDL_MapRGB(format, 0x00,0x00,0x00);
 
-    struct Draw draw = {
+    struct Screen screen = {
         fg_colour,
         bg_colour,
         texture
     };
 
     static ch8_t ch8;
-    if (!ch8_init(&ch8, draw_cb, &draw, sound_cb, 0)) {
+    if (!ch8_init(&ch8, draw_cb, &screen, sound_cb, 0)) {
         perror("failed to init ch8\n");
         return -1;
     }
