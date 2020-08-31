@@ -44,7 +44,7 @@ static int write_file(const char *file, char *name, FILE *ofile) {
     long size = filesize;
     rewind(fp);
     
-    fprintf(ofile, "\tcase %s: {\n\t\tconst u8 data[] = {", name);
+    fprintf(ofile, "\tcase %s: {\n\t\tconst unsigned char data[] = {", name);
 
     while (size > 0) {
         const long read_size = size < sizeof(buffer) ? size : sizeof(buffer);

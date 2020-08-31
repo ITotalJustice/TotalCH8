@@ -62,8 +62,14 @@ meson-private/
 builddir/
 build.ninja
 tests/
-*.nro
-*.nacp
 *.jpg
 *.png
 build/
+
+# switch
+*.nro
+*.nacp
+
+# 3ds
+*.3dsx
+*.smdh
