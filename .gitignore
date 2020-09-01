@@ -73,3 +73,6 @@ build/
 # 3ds
 *.3dsx
 *.smdh
+
+# gamecube
+*.dol
