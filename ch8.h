@@ -62,11 +62,7 @@
 
 /// Defaults.
 #define CH8_VSYNC true
-#define CH8_WRAP_X false
-#define CH8_WRAP_Y false
-#define CH8_CLOCK_FREQ 600.0
-#define CH8_REFRESH_RATE 60.0
-#define CH8_CLOCK_STEP CH8_CLOCK_FREQ / CH8_REFRESH_RATE
+#define CH8_CLOCK 10
 
 typedef enum {
     CH8KEY_0, CH8KEY_1, CH8KEY_2, CH8KEY_3,
@@ -126,6 +122,8 @@ typedef struct {
     struct Ch8_input input;
     struct Ch8_var var;
     unsigned seed;
+    unsigned clock;
+    bool vsync;
 } ch8_t;
 
 /// API CALLS
@@ -136,6 +134,9 @@ bool ch8_loadstate(ch8_t *ch8, const struct ch8_savestate *state);
 void ch8_reset(ch8_t *ch8);
 bool ch8_should_draw(const ch8_t *ch8);
 bool ch8_should_sound(const ch8_t *ch8);
+unsigned ch8_get_clock(ch8_t *ch8);
+void ch8_set_clock(ch8_t *ch8, unsigned clock);
+void ch8_toggle_vsync(ch8_t *ch8, bool enable);
 bool ch8_get_pixel(const ch8_t *ch8, unsigned char x, unsigned char y);
 void ch8_run(ch8_t *ch8);
 bool ch8_init(ch8_t *ch8_out);
@@ -382,6 +383,8 @@ void ch8_reset(ch8_t *ch8) {
 bool ch8_init(ch8_t *ch8_out) {
     if (!ch8_out) return false;
     MEMSET(ch8_out, 0, sizeof(ch8_t));
+    ch8_out->vsync = CH8_VSYNC;
+    ch8_out->clock = CH8_CLOCK;
     return true;
 }
 
@@ -405,6 +408,18 @@ bool ch8_should_sound(const ch8_t *ch8) {
     return ch8->reg.st > 0;
 }
 
+unsigned ch8_get_clock(ch8_t *ch8) {
+    return ch8->clock;
+}
+
+void ch8_set_clock(ch8_t *ch8, unsigned clock) {
+    ch8->clock = clock;
+}
+
+void ch8_toggle_vsync(ch8_t *ch8, bool enable) {
+    ch8->vsync = enable;
+}
+
 bool ch8_get_pixel(const ch8_t *ch8, unsigned char x, unsigned char y) {
     return ch8->display.pixels[x + (ch8->display.width * y)];
 }
@@ -412,9 +427,13 @@ bool ch8_get_pixel(const ch8_t *ch8, unsigned char x, unsigned char y) {
 void ch8_run(ch8_t *ch8) {
     ch8->display.draw = false;
 
-    for (unsigned clock = 0; clock < 10; clock++) {
+    for (unsigned clock = 0; clock < ch8->clock; clock++) {
         FETCH();
         EXECUTE();
+        // break early if a draw call is made
+        if (ch8->display.draw && ch8->vsync) {
+            break;
+        }
     }
 
     if (CH8_DT) {
@@ -425,5 +444,6 @@ void ch8_run(ch8_t *ch8) {
         CH8_ST--;
     }
 }
+
 #endif /* CH8_IMPLEMENTATION */
 #endif /* CH8_INCLUDE */
