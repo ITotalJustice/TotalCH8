@@ -55,26 +55,13 @@ static void draw_rect(struct Screen *screen, int x, int y, int w, int h, uint32_
     }
 }
 
-static void sound_cb(void *user_data) {}
-
-static void draw_cb(const struct Ch8_display *display, void *user_data) {
-    struct Screen *screen = (struct Screen*)user_data;
-
-    for (uint8_t y = 0; y < display->height; y++) {
-        for (uint8_t x = 0; x < display->width; x++) {
-            const uint32_t col = ch8_get_pixel(display,x,y) ? FG_COLOUR : BG_COLOUR;
-            draw_rect(screen, x * SCALE, y * SCALE, SCALE, SCALE, col);
-        }
-    }
-}
-
 int main(int argc, char **argv) {
     appletLockExit();
 
     struct Screen screen = {0};
     ch8_t ch8 = {0};
-    ch8_init(&ch8, draw_cb, &screen, sound_cb, 0);
-    ch8_loadbuiltinrom(&ch8, PONG);
+    ch8_init(&ch8);
+    ch8_loadbuiltinrom(&ch8, INVADERS);
 
     viInitialize(ViServiceType_Application);
     viOpenDefaultDisplay(&screen.display);
@@ -105,6 +92,13 @@ int main(int argc, char **argv) {
         screen.pixels = (uint32_t*)framebufferBegin(&screen.fb, 0);
 
         ch8_run(&ch8);
+
+        for (uint8_t y = 0; y < CH8_DISPLAY_H; y++) {
+            for (uint8_t x = 0; x < CH8_DISPLAY_W; x++) {
+                const uint32_t col = ch8_get_pixel(&ch8,x,y) ? FG_COLOUR : BG_COLOUR;
+                draw_rect(&screen, x * SCALE, y * SCALE, SCALE, SCALE, col);
+            }
+        }
 
         framebufferEnd(&screen.fb);
     }

@@ -40,24 +40,10 @@ struct Screen {
     uint32_t fg_colour;
 };
 
-static void sound_cb(void *user_data) {}
-
-static void draw_cb(const struct Ch8_display *display, void *user_data) {
-    struct Screen *screen = (struct Screen*)user_data;
-
-    for (uint8_t y = 0; y < display->height; y++) {
-        for (uint8_t x = 0; x < display->width; x++) {
-            const uint32_t col = ch8_get_pixel(display,x,y) ? screen->fg_colour : screen->bg_colour;
-            C2D_DrawRectSolid(x * SCALE, y * SCALE, 0.0, SCALE, SCALE, col);
-        }
-    }
-}
-
 int main(int argc, char **argv) {
-
     struct Screen screen = {0};
     ch8_t ch8 = {0};
-    ch8_init(&ch8, draw_cb, &screen, sound_cb, 0);
+    ch8_init(&ch8);
     ch8_loadbuiltinrom(&ch8, INVADERS);
 
     gfxInitDefault();
@@ -88,14 +74,28 @@ int main(int argc, char **argv) {
         if (kDown & KEY_RIGHT) ch8_set_key(&ch8, CH8KEY_6, true);
         else if(kUp & KEY_RIGHT) ch8_set_key(&ch8, CH8KEY_6, false);
 
-        C3D_FrameBegin(C3D_FRAME_SYNCDRAW);
-        C2D_SceneBegin(screen.top);
-
         ch8_run(&ch8);
 
+        C3D_FrameBegin(C3D_FRAME_SYNCDRAW);
+            C2D_SceneBegin(screen.top);
+            for (uint8_t y = 0; y < CH8_DISPLAY_H; y++) {
+                for (uint8_t x = 0; x < CH8_DISPLAY_W; x++) {
+                    const uint32_t col = ch8_get_pixel(&ch8,x,y) ? screen.fg_colour : screen.bg_colour;
+                    C2D_DrawRectSolid(x * SCALE, y * SCALE, 0.0, SCALE, SCALE, col);
+                }
+            }
+            C2D_SceneBegin(screen.bottom);
+            for (uint8_t y = 0; y < CH8_DISPLAY_H; y++) {
+                for (uint8_t x = 0; x < CH8_DISPLAY_W; x++) {
+                    const uint32_t col = ch8_get_pixel(&ch8,x,y) ? screen.fg_colour : screen.bg_colour;
+                    C2D_DrawRectSolid(x * (SCALE - 1), y * (SCALE - 1), 0.0, (SCALE - 1), (SCALE - 1), col);
+                }
+            }
         C3D_FrameEnd(0);
     }
 
+    C3D_RenderTargetDelete(screen.top);
+    C3D_RenderTargetDelete(screen.bottom);
     C2D_Fini();
     C3D_Fini();
     gfxExit();

@@ -15,61 +15,9 @@ struct Screen {
     SDL_Texture *texture;
 };
 
-static void sound_cb(void *user_data) {
-
-}
-
-static void draw_cb(const struct Ch8_display *display, void *user_data) {
-    struct Screen *screen = (struct Screen*)user_data;
-    uint32_t *pixels; int pitch;
-    SDL_LockTexture(screen->texture, NULL, (void**)&pixels, &pitch);
-
-    for (uint8_t y = 0; y < CH8_DISPLAY_H; y++) {
-        const uint16_t pos = y * CH8_DISPLAY_W;
-        for (uint8_t x = 0; x < CH8_DISPLAY_W; x++) {
-            pixels[x + pos] = ch8_get_pixel(display,x,y) ? screen->fg_colour : screen->bg_colour;
-        }
-    }
-
-    SDL_UnlockTexture(screen->texture);
-}
-
-static bool loadrom(ch8_t *c, const char *path) {
-    if (!c || !path) return NULL;
-    FILE *fp = fopen(path, "rb");
-    if (!fp) return false;
-    fseek(fp, 0, SEEK_END);
-    long sz = ftell(fp);
-    rewind(fp);
-    if (!sz || sz > CH8_MAX_ROM_SIZE) goto error_close;
-    uint8_t *data = (uint8_t*)malloc(sz);
-    fread((void*)data, sz, 1, fp);
-    if (!ch8_loadrom(c, data, (uint32_t)sz)) goto error_free;
-    fclose(fp);
-    free(data);
-    return true;
-
-    error_free:
-        free(data);
-    error_close:
-        fclose(fp);
-    return false;
-}
-
-static void set_key(ch8_t *ch8, SDL_Keycode key, bool key_down) {
-
-}
-
 int main(int argc, char **argv) {
-    if (argc < 2) {
-        perror("missing args\n");
-        return -1;
-    }
 
-    if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_EVENTS) != 0) {
-        perror("failed to init sdl2\n");
-        return -1;
-    }
+    SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_EVENTS);
 
     SDL_Window *window = SDL_CreateWindow("chip8", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, CH8_DISPLAY_W * SCALE, CH8_DISPLAY_H * SCALE, SDL_WINDOW_SHOWN);
     SDL_Renderer *renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
@@ -86,15 +34,7 @@ int main(int argc, char **argv) {
     };
 
     static ch8_t ch8;
-    if (!ch8_init(&ch8, draw_cb, &screen, sound_cb, 0)) {
-        perror("failed to init ch8\n");
-        return -1;
-    }
-
-    if (loadrom(&ch8, argv[1]) == false) {
-        perror("failed to load rom\n");
-        return -1;
-    }
+    ch8_init(&ch8);
 
     bool quit = false;
     while (!quit) {
@@ -126,6 +66,17 @@ int main(int argc, char **argv) {
             }
         }
         ch8_run(&ch8);
+
+        uint32_t *pixels; int pitch;
+        SDL_LockTexture(screen.texture, NULL, (void**)&pixels, &pitch);
+        for (uint8_t y = 0; y < CH8_DISPLAY_H; y++) {
+            const uint16_t pos = y * CH8_DISPLAY_W;
+            for (uint8_t x = 0; x < CH8_DISPLAY_W; x++) {
+                pixels[x + pos] = ch8_get_pixel(&ch8,x,y) ? screen.fg_colour : screen.bg_colour;
+            }
+        }
+        SDL_UnlockTexture(screen.texture);
+
         SDL_RenderClear(renderer);
         SDL_RenderCopy(renderer, texture, NULL, NULL);
         SDL_RenderPresent(renderer);

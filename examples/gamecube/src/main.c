@@ -97,21 +97,6 @@ static void draw_rect(struct Screen *screen, float x, float y, float w, float h,
 	GX_SetTevOp(GX_TEVSTAGE0, GX_MODULATE);
 }
 
-static void sound_cb(void *user_data) {}
-
-static void draw_cb(const struct Ch8_display *display, void *user_data) {
-    struct Screen *screen = (struct Screen*)user_data;
-	const float yoff = (screen->height - (CH8_DISPLAY_H * SCALE)) / 2;
-	const float xoff = (screen->width - (CH8_DISPLAY_W * SCALE)) / 2;
-
-    for (uint8_t y = 0; y < display->height; y++) {
-        for (uint8_t x = 0; x < display->width; x++) {
-            const GXColor col = ch8_get_pixel(display,x,y) ? screen->fg_colour : screen->bg_colour;
-			draw_rect(screen, xoff + (x * SCALE), yoff + (y * SCALE), SCALE, SCALE, col);
-        }
-    }
-}
-
 int main(int argc, char **argv) {
     struct Screen screen = {0};
 	screen.width = WIDTH;
@@ -120,7 +105,7 @@ int main(int argc, char **argv) {
 	screen.fg_colour = gxRGB8(0x00, 0xFF, 0x00);
 
     ch8_t ch8 = {0};
-    ch8_init(&ch8, draw_cb, &screen, sound_cb, 0);
+    ch8_init(&ch8);
     ch8_loadbuiltinrom(&ch8, INVADERS);
 
 	VIDEO_Init();
@@ -204,6 +189,15 @@ int main(int argc, char **argv) {
         else if(kUp & PAD_BUTTON_RIGHT) ch8_set_key(&ch8, CH8KEY_6, false);
 		
 		ch8_run(&ch8);
+		const float yoff = (screen.height - (CH8_DISPLAY_H * SCALE)) / 2;
+		const float xoff = (screen.width - (CH8_DISPLAY_W * SCALE)) / 2;
+
+		for (uint8_t y = 0; y < CH8_DISPLAY_H; y++) {
+			for (uint8_t x = 0; x < CH8_DISPLAY_W; x++) {
+				const GXColor col = ch8_get_pixel(&ch8,x,y) ? screen.fg_colour : screen.bg_colour;
+				draw_rect(&screen, xoff + (x * SCALE), yoff + (y * SCALE), SCALE, SCALE, col);
+			}
+		}
 
 		screen.fb_idx ^= 1;
 		GX_CopyDisp(screen.fb[screen.fb_idx], GX_TRUE);

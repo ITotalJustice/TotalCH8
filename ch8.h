@@ -101,12 +101,6 @@ struct Ch8_input {
     bool keys[0x10];
 };
 
-struct Ch8_settings {
-    bool pause;
-    float clock_freq;
-    float clock_step;
-};
-
 struct Ch8_var {
     unsigned char n:4;
     unsigned char x:4;
@@ -125,24 +119,12 @@ struct ch8_savestate {
     unsigned char display[CH8_DISPLAY_SIZE];
 };
 
-typedef void (*ch8_cb_draw)(const struct Ch8_display *display, void *user_data);
-typedef void (*ch8_cb_sound)(void *user_data);
-
 typedef struct {
     struct Ch8_reg reg;
     struct Ch8_mem mem;
     struct Ch8_display display;
     struct Ch8_input input;
-    struct Ch8_settings set;
     struct Ch8_var var;
-    struct {
-        void *user_data;
-        ch8_cb_draw cb;
-    } draw;
-    struct {
-        void *user_data;
-        ch8_cb_sound cb;
-    } sound;
     unsigned seed;
 } ch8_t;
 
@@ -152,9 +134,11 @@ bool ch8_loadrom(ch8_t *ch8, const unsigned char *data, unsigned len);
 bool ch8_savestate(const ch8_t *ch8, struct ch8_savestate *out_state);
 bool ch8_loadstate(ch8_t *ch8, const struct ch8_savestate *state);
 void ch8_reset(ch8_t *ch8);
-bool ch8_get_pixel(const struct Ch8_display *display, unsigned char x, unsigned char y);
+bool ch8_should_draw(const ch8_t *ch8);
+bool ch8_should_sound(const ch8_t *ch8);
+bool ch8_get_pixel(const ch8_t *ch8, unsigned char x, unsigned char y);
 void ch8_run(ch8_t *ch8);
-bool ch8_init(ch8_t *ch8_out, ch8_cb_draw drw, void *drw_data, ch8_cb_sound snd, void *snd_data);
+bool ch8_init(ch8_t *ch8_out);
 
 #ifdef CH8_IMPLEMENTATION
 
@@ -231,7 +215,6 @@ static void __ch8_reset(ch8_t *ch8, const bool full) {
     MEMSET(&ch8->var, 0, sizeof(ch8->var));
     MEMSET(&ch8->input, 0, sizeof(ch8->input));
     MEMSET(&ch8->display, 0, sizeof(ch8->display));
-    MEMSET(&ch8->set, 0, sizeof(ch8->set));
     CH8_width = CH8_DISPLAY_W;
     CH8_height = CH8_DISPLAY_H;
     CH8_size = CH8_DISPLAY_SIZE;
@@ -241,7 +224,7 @@ static void __ch8_reset(ch8_t *ch8, const bool full) {
 /// Instructions.
 #define CLS() do { \
     MEMSET(CH8_pixels, 0, sizeof(CH8_pixels)); \
-    ch8->draw.cb(&ch8->display, ch8->draw.user_data); \
+    ch8->display.draw = true; \
 } while(0)
 #define SE(a,b) do if (a == b) CH8_PC += 2; while (0)
 #define SNE(a,b) do if (a != b) CH8_PC += 2; while (0)
@@ -275,7 +258,7 @@ static void __ch8_reset(ch8_t *ch8, const bool full) {
             } \
         } \
     } \
-    ch8->draw.cb(&ch8->display, ch8->draw.user_data); \
+    ch8->display.draw = true; \
 } while (0)
 
 /// Insturction groups.
@@ -396,14 +379,9 @@ void ch8_reset(ch8_t *ch8) {
     __ch8_reset(ch8, false);
 }
 
-bool ch8_init(ch8_t *ch8_out, ch8_cb_draw drw, void *drw_data, ch8_cb_sound snd, void *snd_data) {
+bool ch8_init(ch8_t *ch8_out) {
     if (!ch8_out) return false;
-
-    ch8_out->draw.cb = drw;
-    ch8_out->draw.user_data = drw_data;
-    ch8_out->sound.cb = snd;
-    ch8_out->sound.user_data = snd_data;
-
+    MEMSET(ch8_out, 0, sizeof(ch8_t));
     return true;
 }
 
@@ -419,11 +397,21 @@ void ch8_set_key(ch8_t *ch8, CH8_Key key, bool pressed) {
     CH8_keys[key] = pressed;
 }
 
-bool ch8_get_pixel(const struct Ch8_display *display, unsigned char x, unsigned char y) {
-    return display->pixels[x + (display->width * y)];
+bool ch8_should_draw(const ch8_t *ch8) {
+    return ch8->display.draw;
+}
+
+bool ch8_should_sound(const ch8_t *ch8) {
+    return ch8->reg.st > 0;
+}
+
+bool ch8_get_pixel(const ch8_t *ch8, unsigned char x, unsigned char y) {
+    return ch8->display.pixels[x + (ch8->display.width * y)];
 }
 
 void ch8_run(ch8_t *ch8) {
+    ch8->display.draw = false;
+
     for (unsigned clock = 0; clock < 10; clock++) {
         FETCH();
         EXECUTE();
@@ -435,7 +423,6 @@ void ch8_run(ch8_t *ch8) {
 
     if (CH8_ST) {
         CH8_ST--;
-        ch8->sound.cb(ch8->draw.user_data);
     }
 }
 #endif /* CH8_IMPLEMENTATION */
