@@ -76,3 +76,6 @@ build/
 
 # gamecube
 *.dol
+
+# nds
+*.nds
