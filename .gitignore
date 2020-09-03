@@ -79,3 +79,10 @@ build/
 
 # nds
 *.nds
+
+# vita
+*.vpk
+*.self
+*.out
+*.sfo
+*.velf
