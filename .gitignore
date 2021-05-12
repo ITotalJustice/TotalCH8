@@ -55,34 +55,5 @@ dkms.conf
 
 # My Ignores
 .vscode/
-*.s
-meson-info/
-meson-logs/
-meson-private/
-builddir/
-build.ninja
-tests/
-*.jpg
-*.png
 build/
 
-# switch
-*.nro
-*.nacp
-
-# 3ds
-*.3dsx
-*.smdh
-
-# gamecube
-*.dol
-
-# nds
-*.nds
-
-# vita
-*.vpk
-*.self
-*.out
-*.sfo
-*.velf

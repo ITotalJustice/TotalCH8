@@ -1,147 +1,10 @@
-// The MIT License (MIT)
+#include "ch8.h"
 
-// Copyright (c) 2020 TotalJustice
 
-//  Permission is hereby granted, free of charge, to any person obtaining a
-//  copy of this software and associated documentation files (the "Software"),
-//  to deal in the Software without restriction, including without limitation
-//  the rights to use, copy, modify, merge, publish, distribute, sublicense,
-//  and/or sell copies of the Software, and to permit persons to whom the
-//  Software is furnished to do so, subject to the following conditions:
-//
-//  The above copyright notice and this permission notice shall be included in
-//  all copies or substantial portions of the Software.
-//
-//  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
-//  OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-//  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-//  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-//  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
-//  FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
-//  DEALINGS IN THE SOFTWARE.
-
-#ifndef CH8_INCLUDE
-#define CH8_INCLUDE
-
-#ifndef bool
-#define bool _Bool
-#endif
-#ifdef true
-#undef true
-#endif
-#define true ((bool)1)
-#ifdef false
-#undef false
-#endif
-#define false ((bool)0)
-
-/// API
-#define CH8_VERSION_NUM_MAJOR 1
-#define CH8_VERSION_NUM_MINOR 0
-#define CH8_VERSION_NUM_MACRO 0
-#define CH8_VERSION_NUM (CH8_VERSION_MAJOR << 24 | CH8_VERSION_MINOR << 16 | CH8_VERSION_MACRO << 8)
-
-#define CH8_VERSION_MAJOR "1"
-#define CH8_VERSION_MINOR "0"
-#define CH8_VERSION_MACRO "0"
-#define CH8_VERSION CH8_VERSION_MAJOR "." CH8_VERSION_MINOR "." CH8_VERSION_MACRO
-
-/// Sizes.
-#define SPRITE_SIZE 0x5
-#define SPRITES_SIZE 0x50
-#define CH8_VREG_SIZE 0x10
-#define CH8_RESERVED 0x200
-#define CH8_RAM_SIZE 0x1000
-#define CH8_STACK_SIZE 0x10
-#define CH8_MAX_ROM_SIZE CH8_RAM_SIZE - 0x200
-
-/// Chip8 specific.
-#define CH8_DISPLAY_W 64
-#define CH8_DISPLAY_H 32
-#define CH8_DISPLAY_SIZE (CH8_DISPLAY_W * CH8_DISPLAY_H)
-
+// TODO: remove these
 /// Defaults.
 #define CH8_VSYNC true
 #define CH8_CLOCK 10
-
-typedef enum {
-    CH8KEY_0, CH8KEY_1, CH8KEY_2, CH8KEY_3,
-    CH8KEY_4, CH8KEY_5, CH8KEY_6, CH8KEY_7,
-    CH8KEY_8, CH8KEY_9, CH8KEY_A, CH8KEY_B,
-    CH8KEY_C, CH8KEY_D, CH8KEY_E, CH8KEY_F,
-} CH8_Key;
-
-struct Ch8_reg {
-    unsigned char v[CH8_VREG_SIZE]; /// general register
-    unsigned char st;      /// sound timer
-    unsigned char dt;      /// delay timer
-    unsigned short i:12;   /// index.
-    unsigned short pc:12;  /// program counter
-    unsigned short sp:12;  /// stack pointer.
-};
-
-struct Ch8_mem {
-    unsigned char ram[CH8_RAM_SIZE];
-    unsigned short stack[CH8_STACK_SIZE];
-};
-
-struct Ch8_display {
-    bool draw;
-    bool wrap;
-    unsigned char pixels[CH8_DISPLAY_SIZE];
-    unsigned char width, height;
-    unsigned short size;
-};
-
-struct Ch8_input {
-    bool keys[0x10];
-};
-
-struct Ch8_var {
-    unsigned char n:4;
-    unsigned char x:4;
-    unsigned char y:4;
-    unsigned char kk;
-    unsigned short nnn:12;
-    unsigned short opcode;
-};
-
-struct ch8_savestate {
-    unsigned version;
-    unsigned seed;
-    struct Ch8_reg reg;
-    unsigned char ram[CH8_RESERVED-SPRITES_SIZE];
-    unsigned short stack[CH8_STACK_SIZE];
-    unsigned char display[CH8_DISPLAY_SIZE];
-};
-
-typedef struct {
-    struct Ch8_reg reg;
-    struct Ch8_mem mem;
-    struct Ch8_display display;
-    struct Ch8_input input;
-    struct Ch8_var var;
-    unsigned seed;
-    unsigned clock;
-    bool vsync;
-} ch8_t;
-
-/// API CALLS
-void ch8_set_key(ch8_t *ch8, CH8_Key key, bool pressed);
-bool ch8_loadrom(ch8_t *ch8, const unsigned char *data, unsigned len);
-bool ch8_savestate(const ch8_t *ch8, struct ch8_savestate *out_state);
-bool ch8_loadstate(ch8_t *ch8, const struct ch8_savestate *state);
-void ch8_reset(ch8_t *ch8);
-bool ch8_should_draw(const ch8_t *ch8);
-bool ch8_should_sound(const ch8_t *ch8);
-unsigned ch8_get_clock(ch8_t *ch8);
-void ch8_set_clock(ch8_t *ch8, unsigned clock);
-void ch8_toggle_vsync(ch8_t *ch8, bool enable);
-bool ch8_get_pixel(const ch8_t *ch8, unsigned char x, unsigned char y);
-void ch8_run(ch8_t *ch8);
-bool ch8_init(ch8_t *ch8_out);
-
-#ifdef CH8_IMPLEMENTATION
 
 /// Helper macros.
 #define CH8_opcode  ch8->var.opcode
@@ -166,30 +29,31 @@ bool ch8_init(ch8_t *ch8_out);
 #define CH8_x       ch8->var.x
 #define CH8_y       ch8->var.y
 
-static inline void __ch8_memset(void *p, const int v, unsigned len) {
-    unsigned char *ptr = (unsigned char*)p;
-    unsigned char value = (unsigned char)v;
+
+static inline void __ch8_memset(void *p, const int v, uint32_t len) {
+    uint8_t *ptr = (uint8_t*)p;
+    uint8_t value = (uint8_t)v;
     while (len--) *ptr++ = value;
 }
 
-static inline void __ch8_memcpy(void *dst, const void *src, unsigned len) {
-    unsigned char *d = (unsigned char*)dst;
-    const unsigned char *s = (const unsigned char*)src;
+static inline void __ch8_memcpy(void *dst, const void *src, uint32_t len) {
+    uint8_t *d = (uint8_t*)dst;
+    const uint8_t *s = (const uint8_t*)src;
     while (len--) *d++ = *s++;
 }
 
 #define MEMSET(p,v,len) __ch8_memset((void*)(p),(v),(len))
 #define MEMCPY(d,s,len) __ch8_memcpy((void*)(d),(const void*)(s),(len))
 
-static inline unsigned char __ch8_rand(ch8_t *ch8) {
+static inline uint8_t __ch8_rand(struct CH8_Core* ch8) {
     ch8->seed = (214013*ch8->seed+2531011);
     return ((ch8->seed>>16)&0x7FFF) & 0xFF;
 }
 
-static void __ch8_reset(ch8_t *ch8, const bool full) {
+static void __ch8_reset(struct CH8_Core* ch8, const bool full) {
     if (full) {
         MEMSET(&ch8->mem, 0, sizeof(ch8->mem));
-        const unsigned char CH8_FONTSET[SPRITES_SIZE] = {
+        const uint8_t CH8_FONTSET[SPRITES_SIZE] = {
             0xF0, 0x90, 0x90, 0x90, 0xF0, /// 0x0
             0x20, 0x60, 0x20, 0x20, 0x70, /// 0x1
             0xF0, 0x10, 0xF0, 0x80, 0xF0, /// 0x2
@@ -247,13 +111,19 @@ static void __ch8_reset(ch8_t *ch8, const bool full) {
 #define RND(a,mask) do a = __ch8_rand(ch8) & mask; while(0)
 #define DRAW() do { \
     CH8_V[0xF] = 0; \
-    for (unsigned char n = 0; n < CH8_n; n++) { \
-    const unsigned short pos = (unsigned short)(CH8_V[CH8_x] + ((CH8_V[CH8_y] + n) * CH8_width)); \
-        for (unsigned char bit = 0; bit < 8; bit++) { \
+    for (uint8_t n = 0; n < CH8_n; n++) { \
+    const uint16_t pos = (uint32_t)(CH8_V[CH8_x] + ((CH8_V[CH8_y] + n) * CH8_width)); \
+        for (uint8_t bit = 0; bit < 8; bit++) { \
             if (CH8_ram[CH8_I + n] & (0x80 >> bit)) { \
-                unsigned short bitpos = pos + bit; \
-                if (CH8_wrap) \
-                    bitpos %= CH8_width; \
+                uint16_t bitpos = pos + bit; \
+                if (bitpos >= CH8_DISPLAY_SIZE) { \
+                	if (CH8_wrap) { \
+                		bitpos %= CH8_width; \
+                	} \
+                	else { \
+                		continue; \
+                	} \
+                } \
                 CH8_V[0xF] |= CH8_pixels[bitpos]; \
                 CH8_pixels[bitpos] ^= 1; \
             } \
@@ -308,16 +178,16 @@ static void __ch8_reset(ch8_t *ch8, const bool full) {
         case 0x1E: ADD(CH8_I, CH8_V[CH8_x]); break; \
         case 0x29: LD(CH8_I, CH8_V[CH8_x] * 5); break; \
         case 0x33: \
-            LD(CH8_ram[CH8_I], (unsigned char)(CH8_V[CH8_x] % 1000) / 100); \
+            LD(CH8_ram[CH8_I], (uint8_t)(CH8_V[CH8_x] % 1000) / 100); \
             LD(CH8_ram[CH8_I + 1], (CH8_V[CH8_x] % 100) / 10); \
             LD(CH8_ram[CH8_I + 2], (CH8_V[CH8_x] % 10) / 1); \
             break; \
         case 0x55: \
-            for (unsigned char i = 0; i <= CH8_x; i++) \
+            for (uint8_t i = 0; i <= CH8_x; i++) \
                 LD(CH8_ram[CH8_I + i], CH8_V[i]); \
             break; \
         case 0x65: \
-            for (unsigned char i = 0; i <= CH8_x; i++) \
+            for (uint8_t i = 0; i <= CH8_x; i++) \
                 LD(CH8_V[i], CH8_ram[CH8_I + i]); \
             break; \
     } \
@@ -355,7 +225,7 @@ static void __ch8_reset(ch8_t *ch8, const bool full) {
 } while(0)
 
 /// API
-bool ch8_savestate(const ch8_t *ch8, struct ch8_savestate *out_state) {
+bool ch8_savestate(const struct CH8_Core* ch8, struct ch8_savestate* out_state) {
     if (!ch8 || !out_state) return false;
     out_state->seed = ch8->seed;
     MEMCPY(&out_state->reg, &ch8->reg, sizeof(out_state->reg));
@@ -365,7 +235,7 @@ bool ch8_savestate(const ch8_t *ch8, struct ch8_savestate *out_state) {
     return true;
 }
 
-bool ch8_loadstate(ch8_t *ch8, const struct ch8_savestate *state) {
+bool ch8_loadstate(struct CH8_Core* ch8, const struct ch8_savestate* state) {
     if (!ch8 || !state) return false;
     ch8->seed = state->seed;
     MEMSET(&ch8->input, 0, sizeof(ch8->input));
@@ -376,19 +246,19 @@ bool ch8_loadstate(ch8_t *ch8, const struct ch8_savestate *state) {
     return true;
 }
 
-void ch8_reset(ch8_t *ch8) {
+void ch8_reset(struct CH8_Core* ch8) {
     __ch8_reset(ch8, false);
 }
 
-bool ch8_init(ch8_t *ch8_out) {
+bool ch8_init(struct CH8_Core* ch8_out) {
     if (!ch8_out) return false;
-    MEMSET(ch8_out, 0, sizeof(ch8_t));
+    MEMSET(ch8_out, 0, sizeof(struct CH8_Core));
     ch8_out->vsync = CH8_VSYNC;
     ch8_out->clock = CH8_CLOCK;
     return true;
 }
 
-bool ch8_loadrom(ch8_t *ch8, const unsigned char *data, unsigned len) {
+bool ch8_loadrom(struct CH8_Core* ch8, const uint8_t* data, uint32_t len) {
     if (!ch8 || !data || !len) return false;
     if (len > CH8_MAX_ROM_SIZE) return false;
     __ch8_reset(ch8, true);
@@ -396,38 +266,38 @@ bool ch8_loadrom(ch8_t *ch8, const unsigned char *data, unsigned len) {
     return true;
 }
 
-void ch8_set_key(ch8_t *ch8, CH8_Key key, bool pressed) {
+void ch8_set_key(struct CH8_Core* ch8, CH8_Key key, bool pressed) {
     CH8_keys[key] = pressed;
 }
 
-bool ch8_should_draw(const ch8_t *ch8) {
+bool ch8_should_draw(const struct CH8_Core* ch8) {
     return ch8->display.draw;
 }
 
-bool ch8_should_sound(const ch8_t *ch8) {
+bool ch8_should_sound(const struct CH8_Core* ch8) {
     return ch8->reg.st > 0;
 }
 
-unsigned ch8_get_clock(ch8_t *ch8) {
+uint32_t ch8_get_clock(struct CH8_Core* ch8) {
     return ch8->clock;
 }
 
-void ch8_set_clock(ch8_t *ch8, unsigned clock) {
+void ch8_set_clock(struct CH8_Core* ch8, uint32_t clock) {
     ch8->clock = clock;
 }
 
-void ch8_toggle_vsync(ch8_t *ch8, bool enable) {
+void ch8_toggle_vsync(struct CH8_Core* ch8, bool enable) {
     ch8->vsync = enable;
 }
 
-bool ch8_get_pixel(const ch8_t *ch8, unsigned char x, unsigned char y) {
+bool ch8_get_pixel(const struct CH8_Core* ch8, uint8_t x, uint8_t y) {
     return ch8->display.pixels[x + (ch8->display.width * y)];
 }
 
-void ch8_run(ch8_t *ch8) {
+void ch8_run(struct CH8_Core* ch8) {
     ch8->display.draw = false;
 
-    for (unsigned clock = 0; clock < ch8->clock; clock++) {
+    for (uint32_t clock = 0; clock < ch8->clock; clock++) {
         FETCH();
         EXECUTE();
         // break early if a draw call is made
@@ -444,6 +314,3 @@ void ch8_run(ch8_t *ch8) {
         CH8_ST--;
     }
 }
-
-#endif /* CH8_IMPLEMENTATION */
-#endif /* CH8_INCLUDE */

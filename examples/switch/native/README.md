@@ -1,3 +1,0 @@
-# switch native example
-
-TODO

@@ -1,20 +1,6 @@
 # chip8
 
-Single header, zero dependency chip8 interpreter written in c99.
-
----
-
-## Api
-
-TODO
-
----
-
-## Install
-
-TODO
-
----
+Zero dependency chip8 interpreter written in c99.
 
 ## Credits
 
